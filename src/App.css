@@ -1,25 +1,92 @@
 body {
-  background: #f2f2f2;
   margin: 0;
-  font-family: sans-serif;
+  background: #eef1f5;
+  font-family: "Segoe UI", sans-serif;
 }
 
 .dashboard {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: 540px 320px;
   gap: 20px;
   padding: 20px;
 }
 
 .card {
   background: #ffffff;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.1);
 }
 
-.card h3 {
-  margin-bottom: 10px;
-  font-size: 18px;
+.chart {
+  grid-row: span 2;
+}
+
+.up {
+  color: #1e88e5;
+}
+
+.down {
+  color: #e53935;
+}
+
+.price {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.control h3 {
   text-align: center;
+}
+
+.small {
+  text-align: center;
+  color: #777;
+}
+
+.lot-control {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.lot-control button {
+  width: 40px;
+  height: 40px;
+}
+
+.trade-buttons {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 10px;
+}
+
+.buy {
+  background: #e53935;
+  color: white;
+  width: 120px;
+}
+
+.sell {
+  background: #1e88e5;
+  color: white;
+  width: 120px;
+}
+
+.log-box {
+  max-height: 240px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.log-item.buy {
+  color: #1e88e5;
+}
+
+.log-item.profit {
+  color: #2e7d32;
+}
+
+.log-item.loss {
+  color: #c62828;
 }

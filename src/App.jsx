@@ -1,5 +1,4 @@
-import { useState } from "react";
-
+import { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -7,167 +6,234 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend
+  ReferenceDot
 } from "recharts";
 
-import "./App.css";
+const initialPrice = 100;
 
-// ------------------------
-// 鉱石データ
-// ------------------------
-const ores = [
-  { name: "銅", key: "copper", probability: 0.25, color: "#c47f3c" },
-  { name: "鉄", key: "iron", probability: 0.125, color: "#888888" },
-  { name: "銀", key: "silver", probability: 0.0625, color: "#cccccc" },
-  { name: "金", key: "gold", probability: 0.03125, color: "#ffd700" },
-  { name: "エメラルド", key: "emerald", probability: 0.015625, color: "#50c878" },
-  { name: "ダイヤ", key: "diamond", probability: 0.0078125, color: "#7df9ff" }
-];
-
-// ------------------------
-// グラフ用に「価格の歴史」を保存するデータ
-// ------------------------
-const initialChart = [
-  { time: 1, copper: 10, iron: 20, silver: 40, gold: 80, emerald: 200, diamond: 500 }
-];
+// 単位定義
+const LOT_SIZE = 1000;        // 1Lot = 1000株
+const LOT_UNIT = 1000;        // 1操作 = 1000 Lot
+const MONEY_UNIT = 100000000; // 1億円
+const WINDOW_SIZE = 50;
 
 export default function App() {
-  // 所持金
-  const [money, setMoney] = useState(1000);
+  const [price, setPrice] = useState(initialPrice);
+  const [trend, setTrend] = useState("下降トレンド");
+  const [money, setMoney] = useState(1000000000);
+  const [lot, setLot] = useState(1);
+  const [position, setPosition] = useState(0);
+  const [avgPrice, setAvgPrice] = useState(0);
 
-  // 在庫
-  const [inventory, setInventory] = useState({
-    copper: 0,
-    iron: 0,
-    silver: 0,
-    gold: 0,
-    emerald: 0,
-    diamond: 0
-  });
+  const [chartData, setChartData] = useState(
+    Array.from({ length: WINDOW_SIZE }, (_, i) => ({
+      time: i,
+      price: initialPrice
+    }))
+  );
 
-  // 現在の鉱石価格
-  const [prices, setPrices] = useState({
-    copper: 10,
-    iron: 20,
-    silver: 40,
-    gold: 80,
-    emerald: 200,
-    diamond: 500
-  });
-
-  // グラフ用の価格履歴
-  const [chartData, setChartData] = useState(initialChart);
-
-  let time = chartData.length + 1;
+  const [buyPoints, setBuyPoints] = useState([]);
+  const [logs, setLogs] = useState([]);
 
   // ------------------------
-  // 掘る処理
+  // 価格更新
   // ------------------------
-  const handleDig = () => {
-    const r = Math.random();
-    let sum = 0;
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPrice(prev => {
+        const diff = Math.floor(Math.random() * 61 - 30);
+        const next = Math.max(1, prev + diff);
 
-    for (let ore of ores) {
-      sum += ore.probability;
+        setTrend(diff >= 0 ? "上昇トレンド" : "下降トレンド");
 
-      if (r < sum) {
-        const price = prices[ore.key];
+        setChartData(data => {
+          const newData = data.slice(1);
+          newData.push({
+            time: data[data.length - 1].time + 1,
+            price: next
+          });
 
-        if (money < price) {
-          alert(`${ore.name} を掘るための資金（${price}円）が足りません！`);
-          return;
-        }
+          setBuyPoints(points =>
+            points.filter(p => p.time >= newData[0].time)
+          );
 
-        // お金を減らす
-        setMoney(prev => prev - price);
+          return newData;
+        });
 
-        // 在庫を増やす
-        setInventory(prev => ({
-          ...prev,
-          [ore.key]: prev[ore.key] + 1
-        }));
+        return next;
+      });
+    }, 500);
 
-        alert(`${ore.name} を掘った！ -${price}円`);
+    return () => clearInterval(timer);
+  }, []);
 
-        // ★価格がランダムで変動
-        const newPrices = {
-          ...prices,
-          [ore.key]: prices[ore.key] + Math.floor(Math.random() * 41 - 20) // -20〜+20
-        };
-        setPrices(newPrices);
+  // ------------------------
+  // 買う
+  // ------------------------
+  const buy = () => {
+    const realLot = lot * LOT_UNIT;
+    const cost = price * realLot * LOT_SIZE;
+    if (money < cost) return;
 
-        // ★グラフに新しい値を追加
-        const newRow = { time };
-        for (let o of ores) newRow[o.key] = newPrices[o.key];
-        setChartData(prev => [...prev, newRow]);
+    const totalCost =
+      avgPrice * position * LOT_UNIT * LOT_SIZE +
+      price * realLot * LOT_SIZE;
 
-        return;
-      }
-    }
+    const newPos = position + lot;
+
+    setMoney(m => m - cost);
+    setAvgPrice(totalCost / (newPos * LOT_UNIT * LOT_SIZE));
+    setPosition(newPos);
+
+    const t = chartData[chartData.length - 1].time;
+    setBuyPoints(p => [...p, { time: t, price }]);
+
+    setLogs(l => [
+      {
+        type: "buy",
+        text: `${realLot} Lot を ${price.toFixed(2)} 円で購入`
+      },
+      ...l
+    ]);
   };
 
   // ------------------------
-  // 売る処理
+  // 売る
   // ------------------------
-  const handleSell = (oreKey) => {
-    if (inventory[oreKey] <= 0) {
-      alert("在庫がありません！");
-      return;
-    }
+  const sell = () => {
+    if (position < lot) return;
 
-    setInventory(prev => ({
-      ...prev,
-      [oreKey]: prev[oreKey] - 1
-    }));
+    const realLot = lot * LOT_UNIT;
+    const profit =
+      (price - avgPrice) * realLot * LOT_SIZE;
 
-    setMoney(prev => prev + prices[oreKey]);
+    setMoney(m => m + price * realLot * LOT_SIZE);
+    setPosition(p => p - lot);
+
+    if (position - lot === 0) setAvgPrice(0);
+
+    setLogs(l => [
+      {
+        type: profit >= 0 ? "profit" : "loss",
+        text: `${realLot} Lot 売却 → ${
+          profit >= 0 ? "+" : ""
+        }${profit.toLocaleString()} 円`
+      },
+      ...l
+    ]);
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>鉱石売買ゲーム</h1>
+    <div style={{ display: "flex", padding: 20 }}>
+      {/* チャート */}
+      <div>
+        <h2 style={{ color: trend === "上昇トレンド" ? "blue" : "red" }}>
+          {trend}
+        </h2>
+        <h3>価格：{price.toFixed(2)} 円</h3>
 
-      <h2>所持金：{money} 円</h2>
+        <LineChart width={520} height={300} data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="time" />
+          <YAxis />
+          <Tooltip />
 
-      <button onClick={handleDig}>掘る！</button>
+          <Line
+            type="linear"
+            dataKey="price"
+            stroke="#00ff00"
+            dot={false}
+            isAnimationActive={false}
+          />
 
-      <h3>在庫</h3>
-      {ores.map(ore => (
-        <div key={ore.key} style={{ marginBottom: 10 }}>
-          {ore.name}：{inventory[ore.key]} 個
+          {buyPoints.map((p, i) => (
+            <ReferenceDot
+              key={i}
+              x={p.time}
+              y={p.price}
+              r={5}
+              fill="blue"
+            />
+          ))}
+        </LineChart>
+      </div>
+
+      {/* 操作 + ログ */}
+      <div style={{ marginLeft: 30, width: 320 }}>
+        <h2>
+          {lot} Lot
+          <br />
+          <small>(1操作 = 1000 Lot)</small>
+        </h2>
+
+        <button onClick={() => setLot(l => Math.max(1, l - 1))}>−</button>
+        <button onClick={() => setLot(l => l + 1)}>＋</button>
+
+        <div style={{ marginTop: 10 }}>
           <button
-            onClick={() => handleSell(ore.key)}
-            style={{ marginLeft: 10 }}
-            disabled={inventory[ore.key] <= 0}
+            style={{ background: "blue", color: "#fff", width: 100 }}
+            onClick={buy}
           >
-            売る（{prices[ore.key]}円）
+            買う
+          </button>
+          <button
+            style={{
+              background: "red",
+              color: "#fff",
+              width: 100,
+              marginLeft: 10
+            }}
+            onClick={sell}
+          >
+            売る
           </button>
         </div>
-      ))}
 
-      <hr />
+        <hr />
 
-      <h2>価格推移グラフ</h2>
-      <div className="dashboard">
-        {ores.map((ore) => (
-          <div className="card" key={ore.key}>
-            <h3>{ore.name}</h3>
-            <LineChart width={330} height={220} data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey={ore.key}
-                stroke={ore.color}
-                strokeWidth={2}
-              />
-            </LineChart>
-          </div>
-        ))}
+        <p>保有Lot：{position * LOT_UNIT}</p>
+        <p>平均取得価格：{avgPrice.toFixed(2)} 円</p>
+        <h3>資産：{(money / MONEY_UNIT).toFixed(2)} 億円</h3>
+
+        <hr />
+        <h3>📜 ログ</h3>
+        <div style={{ maxHeight: 200, overflowY: "auto" }}>
+          {logs.map((log, i) => {
+            const isBuy = log.type === "buy";
+            const isSell = log.type === "profit" || log.type === "loss";
+
+            return (
+              <div
+                key={i}
+                style={{
+                  color: isBuy
+                    ? "blue"
+                    : log.type === "profit"
+                    ? "green"
+                    : "red",
+                  fontSize: 13
+                }}
+              >
+                {isBuy && "□BUY "}
+                {isSell && "△SELL "}
+                {log.text}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
