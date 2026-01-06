@@ -44,7 +44,7 @@ export default function App() {
         const diff = Math.floor(Math.random() * 61 - 30);
         const next = Math.max(1, prev + diff);
 
-        setTrend(diff >= 0 ? "上昇トレンド" : "下降トレンド");
+        setTrend(diff >= 0 ? "上昇" : "下降");
 
         setChartData(data => {
           const newData = data.slice(1);
@@ -127,7 +127,7 @@ export default function App() {
     <div style={{ display: "flex", padding: 20 }}>
       {/* チャート */}
       <div>
-        <h2 style={{ color: trend === "上昇トレンド" ? "blue" : "red" }}>
+        <h2 style={{ color: trend === "上昇" ? "blue" : "red" }}>
           {trend}
         </h2>
         <h3>価格：{price.toFixed(2)} 円</h3>
