@@ -18,9 +18,9 @@ const MONEY_UNIT = 100000000;
 const WINDOW_SIZE = 50;
 
 export default function App() {
-  // ------------------------
+  // ========================
   // 基本状態
-  // ------------------------
+  // ========================
   const [price, setPrice] = useState(initialPrice);
   const [trend, setTrend] = useState("下降トレンド");
   const [money, setMoney] = useState(1000000000);
@@ -28,16 +28,16 @@ export default function App() {
   const [position, setPosition] = useState(0);
   const [avgPrice, setAvgPrice] = useState(0);
 
-  // ------------------------
+  // ========================
   // モード切替
-  // ------------------------
+  // ========================
   const [priceMode, setPriceMode] = useState("random"); // random | real
   const [realPrices, setRealPrices] = useState([]);
   const [priceIndex, setPriceIndex] = useState(0);
 
-  // ------------------------
+  // ========================
   // チャート
-  // ------------------------
+  // ========================
   const [chartData, setChartData] = useState(
     Array.from({ length: WINDOW_SIZE }, (_, i) => ({
       time: i,
@@ -48,13 +48,12 @@ export default function App() {
   const [buyPoints, setBuyPoints] = useState([]);
   const [logs, setLogs] = useState([]);
 
-  // ------------------------
+  // ========================
   // 実データ初期化（ダミー）
-  // ------------------------
+  // ========================
   useEffect(() => {
     if (priceMode !== "real") return;
 
-    // TODO: Yahoo Finance API 等に差し替え
     const prices = Array.from({ length: 300 }, (_, i) =>
       100 + Math.sin(i / 10) * 20 + Math.random() * 5
     );
@@ -72,12 +71,12 @@ export default function App() {
     setPrice(prices[WINDOW_SIZE - 1]);
   }, [priceMode]);
 
-  // ------------------------
+  // ========================
   // 価格更新
-  // ------------------------
+  // ========================
   useEffect(() => {
     const timer = setInterval(() => {
-      // ランダム
+      // --- ランダム ---
       if (priceMode === "random") {
         setPrice(prev => {
           const diff = Math.floor(Math.random() * 61 - 30);
@@ -98,7 +97,7 @@ export default function App() {
         });
       }
 
-      // 実データ
+      // --- 実データ ---
       if (priceMode === "real" && realPrices.length > 0) {
         setPriceIndex(i => {
           const nextIndex = i + 1;
@@ -127,9 +126,9 @@ export default function App() {
     return () => clearInterval(timer);
   }, [priceMode, realPrices]);
 
-  // ------------------------
-  // 売買
-  // ------------------------
+  // ========================
+  // 買う
+  // ========================
   const buy = () => {
     const realLot = lot * LOT_UNIT;
     const cost = price * realLot * LOT_SIZE;
@@ -154,6 +153,9 @@ export default function App() {
     ]);
   };
 
+  // ========================
+  // 売る
+  // ========================
   const sell = () => {
     if (position < lot) return;
 
@@ -175,11 +177,12 @@ export default function App() {
     ]);
   };
 
-  // ------------------------
+  // ========================
   // UI
-  // ------------------------
+  // ========================
   return (
     <div style={{ display: "flex", padding: 20 }}>
+      {/* チャート */}
       <div>
         <div style={{ marginBottom: 10 }}>
           <label>
@@ -223,6 +226,7 @@ export default function App() {
         </LineChart>
       </div>
 
+      {/* 操作 + ログ */}
       <div style={{ marginLeft: 30, width: 320 }}>
         <h2>{lot} Lot</h2>
         <button onClick={() => setLot(l => Math.max(1, l - 1))}>−</button>
@@ -243,14 +247,24 @@ export default function App() {
         <hr />
         <h3>📜 ログ</h3>
         <div style={{ maxHeight: 200, overflowY: "auto" }}>
-          {logs.map((log, i) => (
-            <div key={i}>{log.text}</div>
-          ))}
+          {logs.map((log, i) => {
+            let color = "black";
+            if (log.type === "profit") color = "blue";
+            if (log.type === "loss") color = "red";
+
+            return (
+              <div key={i} style={{ color, fontSize: 13 }}>
+                {log.type === "buy" ? "□ BUY " : "△ SELL "}
+                {log.text}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
+
 
 
 
